@@ -178,7 +178,7 @@ class Request : public pbElement {
         message.arguments.funcs.encode = &write_repeated_args;
       };
       message.arguments.arg = m_arguments;
-      return pb_encode(stream, krpc_schema_Request_fields, &message);
+      return pb_encode_delimited(stream, krpc_schema_Request_fields, &message);
     };
   private:
     const char *m_service;
@@ -233,12 +233,6 @@ void loop() {
     Serial.println("0a0b537061636543656e7465721214436f6e74726f6c5f7365745f5468726f74746c651a0508011201021a08080212040000003f");
 
     // send message - first its length then body
-    uint8_t lenbuf[4];
-    pb_ostream_t lenstream = pb_ostream_from_buffer(lenbuf, sizeof(lenbuf));
-    pb_encode_varint(&lenstream, stream.bytes_written);
-    // send length
-    Serial.println(client.write((const uint8_t*)lenbuf, lenstream.bytes_written));
-    // send body
     Serial.println(client.write((const uint8_t*)buffer, stream.bytes_written));
     delay(0);
   }
