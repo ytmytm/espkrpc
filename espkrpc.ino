@@ -63,13 +63,8 @@ void connectkRPC() {
   Serial.println(client.remotePort());
   // send hello and client name (zero-padded to 32 bytes)
   Serial.println("Sending hello");
-  Serial.println(sizeof(kRPCHello));
   Serial.println(client.connected());
-  Serial.println(client.write((const uint8_t*)kRPCHello, 12));
-  delay(0);
-  Serial.println("Sending name");
-  Serial.println(sizeof(clientname));
-  Serial.println(client.connected());
+  Serial.println(client.write((const uint8_t*)kRPCHello, sizeof(kRPCHello)-1)); // -1 because without terminating 0
   Serial.println(client.write((const uint8_t*)clientname, sizeof(clientname)));
   delay(0);
   // wait for response
