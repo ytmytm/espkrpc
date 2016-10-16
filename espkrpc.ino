@@ -2,6 +2,8 @@
 #include "pb_decode.h"
 #include "krpc.pb.h"
 
+//  tcpdump -Xvvv -n -s 1000 -i any host 192.168.2.168 and port 50000 and tcp
+
 #ifdef ESP8266
 extern "C" {
 #include "user_interface.h"
@@ -10,7 +12,7 @@ extern "C" {
 
 #define SERIAL_BITRATE 115200
 
-#define DEFAULT_SERVER "192.168.2.63" //"krpclocal"
+#define DEFAULT_SERVER "zenit" //"krpclocal"
 #define DEFAULT_RPC_PORT 50000
 #define DEFAULT_STREAM_PORT 50001
 #define OTA_PORT ((DEFAULT_RPC_PORT)-1)
@@ -27,27 +29,45 @@ const char pass[] = MYPASSWORD;
 // Use WiFiClient class to create TCP connections
 WiFiClient client;
 
-IPAddress kRPCServerIP;
-const char* kRPCServerName = DEFAULT_SERVER;
+const char kRPCServerName[] = DEFAULT_SERVER;
 
-const char* kRPCHello = "\x48\x45\x4C\x4C\x4F\x2D\x52\x50\x43\x00\x00\x00";
+const char kRPCHello[] = "\x48\x45\x4C\x4C\x4F\x2D\x52\x50\x43\x00\x00\x00";
 uint8_t clientid[16];
 
 void connectkRPC() {
   char clientname[32]; // buffer for client name and client id
   memset(clientname, 0, sizeof(clientname));
   snprintf(clientname, sizeof(clientname), "ESP.%ux", system_get_chip_id());
+
+  Serial.print("connecting to kRPC IP as: ");
+  Serial.println(clientname);
+
   // open socket (global)
-  if (!client.connect(kRPCServerIP, DEFAULT_RPC_PORT)) {
+  if (!client.connect(kRPCServerName, DEFAULT_RPC_PORT)) {
     Serial.println("connection failed");
     return;
   }
-  Serial.println("Sending hello and name");
+  client.setNoDelay(true);
+  delay(0);
+  Serial.print("Connected:");
+  Serial.println(client.connected());
+  Serial.print("Remote ip:");
+  Serial.println(client.remoteIP());
+  Serial.print("Remote port:");
+  Serial.println(client.remotePort());
   // send hello and client name (zero-padded to 32 bytes)
-  client.write((const uint8_t*)kRPCHello, sizeof(kRPCHello));
-  client.write((const uint8_t*)clientname, sizeof(clientname));
+  Serial.println("Sending hello");
+  Serial.println(sizeof(kRPCHello));
+  Serial.println(client.connected());
+  Serial.println(client.write((const uint8_t*)kRPCHello, 12));
+  delay(0);
+  Serial.println("Sending name");
+  Serial.println(sizeof(clientname));
+  Serial.println(client.connected());
+  Serial.println(client.write((const uint8_t*)clientname, sizeof(clientname)));
+  delay(0);
   // wait for response
-  while (client.available() == 0);
+  while (client.available() == 0) { };
   // receive client id
   client.readBytes(clientid, sizeof(clientid));
   // success
@@ -59,21 +79,18 @@ void connectkRPC() {
 }
 
 void connect() {
-  bool needreconnect = false;
+
   while (WiFi.status() != WL_CONNECTED) {
-    needreconnect = true;
     delay(500);
     Serial.print(".");
   }
-  if (needreconnect) {
-    // get IP of IoT server
-    WiFi.hostByName(kRPCServerName, kRPCServerIP);
-    Serial.print("kRPC IP: ");
-    Serial.println(kRPCServerIP);
+  Serial.println("");
+  Serial.println("WiFi connected");
+  Serial.println("IP address: ");
+  Serial.println(WiFi.localIP());
+  if (!client.connected()) {
     connectkRPC();
   }
-  Serial.print("\nLocal IP: ");
-  Serial.println(WiFi.localIP());
 }
 
 
@@ -178,13 +195,11 @@ void setup() {
   Serial.println(ssid);
   WiFi.mode(WIFI_STA); // seems to be required for OTA
   WiFi.begin(ssid, pass);
-  connect();
-
-
 }
 
 void loop() {
-  yield();
+  Serial.println("wait 1s");
+  delay(1000);
   // reconnect if necessary
   connect();
 
@@ -222,25 +237,25 @@ void loop() {
     pb_ostream_t lenstream = pb_ostream_from_buffer(lenbuf, sizeof(lenbuf));
     pb_encode_varint(&lenstream, stream.bytes_written);
     // send length
-    client.write((const uint8_t*)lenbuf, lenstream.bytes_written);
+    Serial.println(client.write((const uint8_t*)lenbuf, lenstream.bytes_written));
     // send body
-    client.write((const uint8_t*)buffer, stream.bytes_written);
-    yield();
-    client.flush();
-    yield();
+    Serial.println(client.write((const uint8_t*)buffer, stream.bytes_written));
+    delay(0);
   }
 
-  //return 0;
-
   // wait for response
-  while (client.available() == 0);
+  while (client.available() == 0) { };
   // dump response
   while (client.available()) {
     Serial.print(client.read(), HEX);
+    Serial.print(" ");
   }
-
+  Serial.println();
+  // decode response
   // close connection
+  Serial.println("shutdown");
   client.stop();
   // put your main code here, to run repeatedly:
   ESP.deepSleep(15 * 60 * 1000000); // 15 minutes
 }
+
