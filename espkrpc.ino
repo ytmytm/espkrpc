@@ -2,6 +2,8 @@
 #include "pb_decode.h"
 #include "krpc.pb.h"
 
+using namespace std;
+
 //  tcpdump -Xvvv -n -s 1000 -i any host 192.168.2.168 and port 50000 and tcp
 
 #ifdef ESP8266
@@ -17,6 +19,10 @@ extern "C" {
 #define DEFAULT_STREAM_PORT 50001
 #define OTA_PORT ((DEFAULT_RPC_PORT)-1)
 #define MAX_MSG_LEN 512
+
+/* This is the buffer where we will store our messages to encode/send, receive/decode. */
+/* this is global to avoid new/malloc and RAM fragmentation */
+uint8_t buffer[MAX_MSG_LEN];
 
 //#include "wificonfig-example.h" // this file should be in repository
 #include "wificonfig-real.h" // this file should never go to repository 
@@ -93,7 +99,7 @@ void connect() {
   }
 }
 
-
+namespace KRPC {
 
 class pbElement {
   public:
@@ -167,7 +173,7 @@ static bool write_string(pb_ostream_t *stream, const pb_field_t *field, void * c
 
 class Request : public pbElement {
   public:
-    Request(const char *service, const char *procedure, Argument **arguments) : m_service(service), m_procedure(procedure), m_arguments(arguments) { };
+    Request(const char *service, const char *procedure, Argument **arguments = NULL) : m_service(service), m_procedure(procedure), m_arguments(arguments) { };
     bool encode(pb_ostream_t *stream, const pb_field_t *field = NULL, void * const * arg = NULL) {
       krpc_schema_Request message = krpc_schema_Request_init_zero;
       message.service.funcs.encode = &write_string;
@@ -186,7 +192,7 @@ class Request : public pbElement {
     Argument **m_arguments;
 };
 
-
+}
 
 void setup() {
   Serial.begin(SERIAL_BITRATE);
@@ -197,46 +203,33 @@ void setup() {
   WiFi.begin(ssid, pass);
 }
 
-void loop() {
-  Serial.println("wait 1s");
-  delay(1000);
-  // reconnect if necessary
-  connect();
+using namespace std;
 
-  /* Encode our message */
-  {
-    /* This is the buffer where we will store our message. */
-    uint8_t buffer[MAX_MSG_LEN];
-    /* Create a stream that will write to our buffer. */
-    pb_ostream_t stream = pb_ostream_from_buffer(buffer, sizeof(buffer));
+bool sendRequest(KRPC::Request &rq)  {
+  /* Create a stream that will write to our buffer. */
+  pb_ostream_t stream = pb_ostream_from_buffer(buffer, sizeof(buffer));
 
-    /* Prepare message */
-    Argument* args[] = { new Argument(0, new pbBytesUInt32(2)), new Argument(1, new pbBytesFloat(0.5f)), NULL };
-    Request rq("SpaceCenter", "Control_set_Throttle", args);
-
-    /* Now we are ready to encode the message! */
-    /* Then just check for any errors.. */
-    if (!rq.encode(&stream))
-    {
-      Serial.print("Encoding failed:");
-      Serial.println(PB_GET_ERROR(&stream));
-      //return 1;
-    }
-    Serial.print("Encoded ");
-    Serial.println(stream.bytes_written);
-
-    for (unsigned int i = 0; i < stream.bytes_written; i++) {
-      Serial.print(buffer[i], HEX);
-    }
-    Serial.println();
-    // expected output
-    Serial.println("0a0b537061636543656e7465721214436f6e74726f6c5f7365745f5468726f74746c651a0508011201021a08080212040000003f");
-
-    // send message - first its length then body
-    Serial.println(client.write((const uint8_t*)buffer, stream.bytes_written));
-    delay(0);
+  /* Now we are ready to encode the message! */
+  /* Then just check for any errors.. */
+  if (!rq.encode(&stream)) {
+    Serial.print("Encoding failed:");
+    Serial.println(PB_GET_ERROR(&stream));
+    return false;
   }
+  Serial.print("Encoded ");
+  Serial.println(stream.bytes_written);
+  /* dump to terminal */
+  for (unsigned int i = 0; i < stream.bytes_written; i++) {
+    Serial.print(buffer[i], HEX);
+  }
+  Serial.println();
+  // send message - first its length then body
+  Serial.println(client.write((const uint8_t*)buffer, stream.bytes_written));
+  delay(0);
+  return true;
+}
 
+bool getResponse() {
   // wait for response
   while (client.available() == 0) { };
   // dump response
@@ -246,6 +239,45 @@ void loop() {
   }
   Serial.println();
   // decode response
+  return true;
+}
+
+void loop() {
+  Serial.println("wait 1s");
+  delay(1000);
+  // reconnect if necessary
+  connect();
+
+  /* Prepare message */
+  {
+    KRPC::Request rq("SpaceCenter", "get_ActiveVessel");
+    sendRequest(rq);
+    getResponse();
+  }
+
+  {
+    KRPC::Argument* args[] = { new KRPC::Argument(0, new KRPC::pbBytesUInt32(1)), NULL };
+    KRPC::Request rq("SpaceCenter", "Vessel_get_Control", args);
+    sendRequest(rq);
+    getResponse();
+  }
+
+  {
+    KRPC::Argument* args[] = { new KRPC::Argument(0, new KRPC::pbBytesUInt32(2)), new KRPC::Argument(1, new KRPC::pbBytesFloat(0.5f)), NULL };
+    KRPC::Request rq("SpaceCenter", "Control_set_Throttle", args);
+    sendRequest(rq);
+    getResponse();
+  }
+/*
+response na getactivessel, odpowiedz value=1 (i has_value=true)
+E 9 EA 2B A4 70 3D 27 B4 40 20 1 2A 1 1
+response na getcontrol, odpowiedz value=2 (i has_value=true)
+E 9 22 42 1F 85 EB 5B B6 40 20 1 2A 1 2
+response na ustawienie throttle:
+9 9 EB 62 3D A D7 1C A0 40
+(chyba tylko timestamp, reszta pól domyślnie 0)
+*/
+
   // close connection
   Serial.println("shutdown");
   client.stop();
