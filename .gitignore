@@ -1,0 +1,5 @@
+log*.txt
+.Rhistory
+wificonfig-real.h
+wificonfig.py
+*.mpy
