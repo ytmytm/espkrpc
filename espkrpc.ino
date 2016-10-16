@@ -226,7 +226,7 @@ void loop() {
     pb_ostream_t stream = pb_ostream_from_buffer(buffer, sizeof(buffer));
 
     /* Prepare message */
-    Argument* args[] = { new Argument(1, new pbBytesUInt32(2)), new Argument(2, new pbBytesFloat(0.5f)), NULL };
+    Argument* args[] = { new Argument(0, new pbBytesUInt32(2)), new Argument(1, new pbBytesFloat(0.5f)), NULL };
     Request rq("SpaceCenter", "Control_set_Throttle", args);
 
     /* Now we are ready to encode the message! */
