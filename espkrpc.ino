@@ -197,7 +197,7 @@ bool read_print_string(pb_istream_t *stream, const pb_field_t *field, void **arg
   if (len > (MAX_MSG_LEN - 1)) {
     len = MAX_MSG_LEN - 1;
   }
-
+// how to do this without fixed buffer?
   unsigned char buf[len + 1]; // gcc extension syntax
   memset(buf,0,len);
   if (!pb_read(stream, buf, len)) {
@@ -308,6 +308,7 @@ bool sendRequest(KRPC::Request &rq)  {
 }
 
 bool wifiistreamcallback(pb_istream_t *stream, uint8_t *buf, size_t count) {
+  // if end of file or no data or connection closed/dropped, set stream->bytes_left to 0
   return (client.read(buf, count) == count);
 }
 
@@ -357,15 +358,6 @@ void loop() {
     sendRequest(rq);
     getIntResponse();
   }
-  /*
-    response na getactivessel, odpowiedz value=1 (i has_value=true)
-    E 9 EA 2B A4 70 3D 27 B4 40 20 1 2A 1 1
-    response na getcontrol, odpowiedz value=2 (i has_value=true)
-    E 9 22 42 1F 85 EB 5B B6 40 20 1 2A 1 2
-    response na ustawienie throttle:
-    9 9 EB 62 3D A D7 1C A0 40
-    (chyba tylko timestamp, reszta pól domyślnie 0)
-  */
 
   // close connection
   Serial.println("shutdown");
