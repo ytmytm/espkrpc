@@ -31,7 +31,7 @@
 #define PB_NO_ERRMSG 1 /**/
 
 /* Disable support for custom streams (support only memory buffers). */
-#define PB_BUFFER_ONLY 1 /**/
+/* #define PB_BUFFER_ONLY 1 */
 
 /* Switch back to the old-style callback function signature.
  * This was the default until nanopb-0.2.1. */

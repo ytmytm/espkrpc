@@ -2,8 +2,6 @@
 #include "pb_decode.h"
 #include "krpc.pb.h"
 
-using namespace std;
-
 //  tcpdump -Xvvv -n -s 1000 -i any host 192.168.2.168 and port 50000 and tcp
 
 #ifdef ESP8266
@@ -64,7 +62,7 @@ void connectkRPC() {
   // send hello and client name (zero-padded to 32 bytes)
   Serial.println("Sending hello");
   Serial.println(client.connected());
-  Serial.println(client.write((const uint8_t*)kRPCHello, sizeof(kRPCHello)-1)); // -1 because without terminating 0
+  Serial.println(client.write((const uint8_t*)kRPCHello, sizeof(kRPCHello) - 1)); // -1 because without terminating 0
   Serial.println(client.write((const uint8_t*)clientname, sizeof(clientname)));
   delay(0);
   // wait for response
@@ -198,11 +196,26 @@ void setup() {
   WiFi.begin(ssid, pass);
 }
 
+/* This binds the pb_ostream_t into the stdout stream */
+// it works, but is very slow - each call (even single byte) goes in separate packet
+bool wifiostreamcallback(pb_ostream_t *stream, const uint8_t *buf, size_t count) {
+#if 0
+  Serial.print("Ostream bytes:[");
+  Serial.println(count);
+  /* dump to terminal */
+  for (unsigned int i = 0; i < count; i++) {
+    Serial.print(buf[i], HEX);
+    Serial.print(" ");
+  }
+#endif
+  return client.write((const uint8_t*)buf, count);
+}
+
 using namespace std;
 
 bool sendRequest(KRPC::Request &rq)  {
   /* Create a stream that will write to our buffer. */
-  pb_ostream_t stream = pb_ostream_from_buffer(buffer, sizeof(buffer));
+  pb_ostream_t stream = {&wifiostreamcallback, NULL, SIZE_MAX, 0};
 
   /* Now we are ready to encode the message! */
   /* Then just check for any errors.. */
@@ -213,13 +226,6 @@ bool sendRequest(KRPC::Request &rq)  {
   }
   Serial.print("Encoded ");
   Serial.println(stream.bytes_written);
-  /* dump to terminal */
-  for (unsigned int i = 0; i < stream.bytes_written; i++) {
-    Serial.print(buffer[i], HEX);
-  }
-  Serial.println();
-  // send message - first its length then body
-  Serial.println(client.write((const uint8_t*)buffer, stream.bytes_written));
   delay(0);
   return true;
 }
@@ -263,15 +269,17 @@ void loop() {
     sendRequest(rq);
     getResponse();
   }
-/*
-response na getactivessel, odpowiedz value=1 (i has_value=true)
-E 9 EA 2B A4 70 3D 27 B4 40 20 1 2A 1 1
-response na getcontrol, odpowiedz value=2 (i has_value=true)
-E 9 22 42 1F 85 EB 5B B6 40 20 1 2A 1 2
-response na ustawienie throttle:
-9 9 EB 62 3D A D7 1C A0 40
-(chyba tylko timestamp, reszta pól domyślnie 0)
-*/
+  /*
+    response na getactivessel, odpowiedz value=1 (i has_value=true)
+    E 9 EA 2B A4 70 3D 27 B4 40 20 1 2A 1 1
+    response na getcontrol, odpowiedz value=2 (i has_value=true)
+    E 9 22 42 1F 85 EB 5B B6 40 20 1 2A 1 2
+    response na ustawienie throttle:
+    9 9 EB 62 3D A D7 1C A0 40
+    (chyba tylko timestamp, reszta pól domyślnie 0)
+    40 9 3B A8 F6 28 DC 2F BA 40 10 1 1A 33 4E 6F 20 73 75 63 68 20 76 65 73 73 65 6C 20 62 62 39 63 33 37 65 35 2D 36 65 32 38 2D 34 65 31 66 2D 62 36 62 35 2D 65 39 31 32 63 37 35 35 36 33 34 34
+    jakiś błąd
+  */
 
   // close connection
   Serial.println("shutdown");
