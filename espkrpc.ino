@@ -64,7 +64,7 @@ void connectkRPC() {
   // send hello and client name (zero-padded to 32 bytes)
   Serial.println("Sending hello");
   Serial.println(client.connected());
-  Serial.println(client.write((const uint8_t*)kRPCHello, sizeof(kRPCHello)-1)); // -1 because without terminating 0
+  Serial.println(client.write((const uint8_t*)kRPCHello, sizeof(kRPCHello) - 1)); // -1 because without terminating 0
   Serial.println(client.write((const uint8_t*)clientname, sizeof(clientname)));
   delay(0);
   // wait for response
@@ -187,6 +187,89 @@ class Request : public pbElement {
     Argument **m_arguments;
 };
 
+// decoding part
+
+bool read_print_string(pb_istream_t *stream, const pb_field_t *field, void **arg) {
+  size_t len = stream->bytes_left;
+  Serial.print("string length is ");
+  Serial.println(len);
+
+  if (len > (MAX_MSG_LEN - 1)) {
+    len = MAX_MSG_LEN - 1;
+  }
+
+  unsigned char buf[len + 1]; // gcc extension syntax
+  memset(buf,0,len);
+  if (!pb_read(stream, buf, len)) {
+    return false;
+  }
+
+  Serial.print("[");
+  Serial.print((const char*)buf);
+  Serial.println("]");
+  return true;
+}
+
+bool read_varint(pb_istream_t *stream, const pb_field_t *field, void **arg) {
+  uint64_t value;
+  if (!pb_decode_varint(stream, &value)) {
+    return false;
+  }
+  *((uint64_t*)*arg) = value;
+  return true;
+}
+
+// floats are also encoded as fixed32
+bool read_fixed32(pb_istream_t *stream, const pb_field_t *field, void **arg) {
+  uint32_t value;
+  if (!pb_decode_fixed32(stream, &value)) {
+    return false;
+  }
+  *((uint32_t*)*arg) = value;
+  return true;
+}
+
+
+class Response {
+  public:
+    Response(pb_istream_t *stream) : m_stream(stream) {
+      resp = krpc_schema_Response_init_zero;
+    };
+    uint64_t decode_uint64() {
+      uint64_t val;
+      resp.return_value.funcs.decode = &read_varint;
+      resp.return_value.arg = &val;
+      if (v_decode()) {
+        return val;
+      }
+      return -1;
+    };
+    uint32_t decode_uint32() {
+      uint32_t val;
+      resp.return_value.funcs.decode = &read_fixed32;
+      resp.return_value.arg = &val;
+      if (v_decode()) {
+        return val;
+      }
+      return -1;
+    };
+    float decode_float() {
+      uint32_t val = v_decode();
+      if (resp.has_return_value) {
+        return (float)val;
+      } else {
+        return -1.0;
+      }
+    };
+    krpc_schema_Response resp;
+  private:
+    bool v_decode() {
+      resp.error.funcs.decode = &read_print_string;
+      return pb_decode_delimited(m_stream, krpc_schema_Response_fields, &resp);
+    };
+    pb_istream_t *m_stream;
+};
+
 }
 
 void setup() {
@@ -224,17 +307,31 @@ bool sendRequest(KRPC::Request &rq)  {
   return true;
 }
 
-bool getResponse() {
-  // wait for response
+uint32_t getIntResponse() {
+  // wait for response to come
   while (client.available() == 0) { };
-  // dump response
+  // dump response into buffer
+  unsigned i = 0;
   while (client.available()) {
-    Serial.print(client.read(), HEX);
+    buffer[i] = client.read();
+    Serial.print(buffer[i], HEX);
     Serial.print(" ");
+    i++;
   }
   Serial.println();
   // decode response
-  return true;
+  pb_istream_t stream = pb_istream_from_buffer(buffer, sizeof(buffer));
+  KRPC::Response R(&stream);
+  uint32_t val = R.decode_uint64();
+  Serial.print("v=");
+  Serial.print(val);
+  Serial.print("\thas_err=");
+  Serial.print(R.resp.has_error);
+  Serial.print("\thas_val=");
+  Serial.print(R.resp.has_return_value);
+  Serial.print("\ttime=");
+  Serial.println(R.resp.time);
+  return val;
 }
 
 void loop() {
@@ -243,35 +340,37 @@ void loop() {
   // reconnect if necessary
   connect();
 
+  uint32_t active_vessel;
+  uint32_t vessel_control;
   /* Prepare message */
   {
     KRPC::Request rq("SpaceCenter", "get_ActiveVessel");
     sendRequest(rq);
-    getResponse();
+    active_vessel = getIntResponse();
   }
 
   {
-    KRPC::Argument* args[] = { new KRPC::Argument(0, new KRPC::pbBytesUInt32(1)), NULL };
+    KRPC::Argument* args[] = { new KRPC::Argument(0, new KRPC::pbBytesUInt32(active_vessel)), NULL };
     KRPC::Request rq("SpaceCenter", "Vessel_get_Control", args);
     sendRequest(rq);
-    getResponse();
+    vessel_control = getIntResponse();
   }
 
   {
-    KRPC::Argument* args[] = { new KRPC::Argument(0, new KRPC::pbBytesUInt32(2)), new KRPC::Argument(1, new KRPC::pbBytesFloat(0.5f)), NULL };
+    KRPC::Argument* args[] = { new KRPC::Argument(0, new KRPC::pbBytesUInt32(vessel_control)), new KRPC::Argument(1, new KRPC::pbBytesFloat(0.5f)), NULL };
     KRPC::Request rq("SpaceCenter", "Control_set_Throttle", args);
     sendRequest(rq);
-    getResponse();
+    getIntResponse();
   }
-/*
-response na getactivessel, odpowiedz value=1 (i has_value=true)
-E 9 EA 2B A4 70 3D 27 B4 40 20 1 2A 1 1
-response na getcontrol, odpowiedz value=2 (i has_value=true)
-E 9 22 42 1F 85 EB 5B B6 40 20 1 2A 1 2
-response na ustawienie throttle:
-9 9 EB 62 3D A D7 1C A0 40
-(chyba tylko timestamp, reszta pól domyślnie 0)
-*/
+  /*
+    response na getactivessel, odpowiedz value=1 (i has_value=true)
+    E 9 EA 2B A4 70 3D 27 B4 40 20 1 2A 1 1
+    response na getcontrol, odpowiedz value=2 (i has_value=true)
+    E 9 22 42 1F 85 EB 5B B6 40 20 1 2A 1 2
+    response na ustawienie throttle:
+    9 9 EB 62 3D A D7 1C A0 40
+    (chyba tylko timestamp, reszta pól domyślnie 0)
+  */
 
   // close connection
   Serial.println("shutdown");
