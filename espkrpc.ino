@@ -307,20 +307,15 @@ bool sendRequest(KRPC::Request &rq)  {
   return true;
 }
 
+bool wifiistreamcallback(pb_istream_t *stream, uint8_t *buf, size_t count) {
+  return (client.read(buf, count) == count);
+}
+
 uint32_t getIntResponse() {
   // wait for response to come
   while (client.available() == 0) { };
-  // dump response into buffer
-  unsigned i = 0;
-  while (client.available()) {
-    buffer[i] = client.read();
-    Serial.print(buffer[i], HEX);
-    Serial.print(" ");
-    i++;
-  }
-  Serial.println();
   // decode response
-  pb_istream_t stream = pb_istream_from_buffer(buffer, sizeof(buffer));
+  pb_istream_t stream = {&wifiistreamcallback, NULL, SIZE_MAX};
   KRPC::Response R(&stream);
   uint32_t val = R.decode_uint64();
   Serial.print("v=");
