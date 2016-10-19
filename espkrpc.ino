@@ -191,21 +191,18 @@ class Request : public pbElement {
 
 bool read_print_string(pb_istream_t *stream, const pb_field_t *field, void **arg) {
   size_t len = stream->bytes_left;
+  unsigned char buf[2];
+
   Serial.print("string length is ");
   Serial.println(len);
-
-  if (len > (MAX_MSG_LEN - 1)) {
-    len = MAX_MSG_LEN - 1;
-  }
-// how to do this without fixed buffer?
-  unsigned char buf[len + 1]; // gcc extension syntax
-  memset(buf,0,len);
-  if (!pb_read(stream, buf, len)) {
-    return false;
-  }
-
   Serial.print("[");
-  Serial.print((const char*)buf);
+  memset(buf,0,sizeof(buf));
+  for (unsigned i=0;i<len;i++) {
+    if (!pb_read(stream,buf,1)) {
+      return false;
+    }
+    Serial.print((const char*)buf);
+  }
   Serial.println("]");
   return true;
 }
