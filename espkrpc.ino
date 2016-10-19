@@ -106,34 +106,34 @@ static bool write_pbElement(pb_ostream_t *stream, const pb_field_t *field, void 
   return ((pbElement*)*arg)->encode(stream, field, NULL);
 }
 
-class pbBytesUInt32 : public pbElement {
-  public:
-    pbBytesUInt32(const uint32_t value) : m_value(value) { };
-    bool encode(pb_ostream_t *stream, const pb_field_t *field, void * const * arg = NULL) {
-      uint8_t buffer[16];
-      pb_ostream_t local_stream = pb_ostream_from_buffer(buffer, sizeof(buffer));
-      pb_encode_varint(&local_stream, (uint64_t)m_value);
-      return pb_encode_tag_for_field(stream, field) &&
-             pb_encode_varint(stream, local_stream.bytes_written) && // length of data
-             pb_write(stream, buffer, local_stream.bytes_written);   // data itself
-    };
-  private:
-    const uint32_t m_value;
-};
+enum pbBytes_t { pbvarint, pbfloat };
 
-class pbBytesFloat : public pbElement {
+class pbBytes : public pbElement {
   public:
-    pbBytesFloat(const float value) : m_value(value) { };
+    pbBytes(const uint32_t value) : m_type(pbvarint) { m_value.m_uint32=value; };
+    pbBytes(const float value) : m_type(pbfloat) { m_value.m_float=value; };
     bool encode(pb_ostream_t *stream, const pb_field_t *field, void * const * arg = NULL) {
       uint8_t buffer[16];
       pb_ostream_t local_stream = pb_ostream_from_buffer(buffer, sizeof(buffer));
-      pb_encode_fixed32(&local_stream, (void*)&m_value);
+      switch (m_type) {
+        case pbvarint:
+          pb_encode_varint(&local_stream, (uint64_t)m_value.m_uint32);
+          break;
+        case pbfloat:
+          pb_encode_fixed32(&local_stream, (void*)&m_value.m_float);
+          break;
+      };
       return pb_encode_tag_for_field(stream, field) &&
              pb_encode_varint(stream, local_stream.bytes_written) && // length of data
              pb_write(stream, buffer, local_stream.bytes_written);   // data itself
     };
   private:
-    const float m_value;
+     union {
+      uint32_t m_uint32;
+      float m_float;
+      char *m_char;
+    } m_value;
+    const pbBytes_t m_type;
 };
 
 class Argument : public pbElement {
@@ -228,7 +228,6 @@ bool read_fixed32(pb_istream_t *stream, const pb_field_t *field, void **arg) {
   *((uint32_t*)*arg) = value;
   return true;
 }
-
 
 class Response {
   public:
@@ -346,14 +345,14 @@ void loop() {
   }
 
   {
-    KRPC::Argument* args[] = { new KRPC::Argument(0, new KRPC::pbBytesUInt32(active_vessel)), NULL };
+    KRPC::Argument* args[] = { new KRPC::Argument(0, new KRPC::pbBytes(active_vessel)), NULL };
     KRPC::Request rq("SpaceCenter", "Vessel_get_Control", args);
     sendRequest(rq);
     vessel_control = getIntResponse();
   }
 
   {
-    KRPC::Argument* args[] = { new KRPC::Argument(0, new KRPC::pbBytesUInt32(vessel_control)), new KRPC::Argument(1, new KRPC::pbBytesFloat(0.5f)), NULL };
+    KRPC::Argument* args[] = { new KRPC::Argument(0, new KRPC::pbBytes(vessel_control)), new KRPC::Argument(1, new KRPC::pbBytes(0.5f)), NULL };
     KRPC::Request rq("SpaceCenter", "Control_set_Throttle", args);
     sendRequest(rq);
     getIntResponse();
