@@ -317,34 +317,38 @@ uint32_t getIntResponse() {
   return val;
 }
 
+namespace KRPC {
+  uint32_t active_vessel(void) {
+    KRPC::Request rq("SpaceCenter", "get_ActiveVessel");
+    sendRequest(rq);
+    return getIntResponse();
+  }
+  uint32_t control(uint32_t active_vessel) {
+    KRPC::Argument* args[] = { new KRPC::Argument(0, new KRPC::pbBytes(active_vessel)), NULL };
+    KRPC::Request rq("SpaceCenter", "Vessel_get_Control", args);
+    sendRequest(rq);
+    return getIntResponse();
+  }
+  void setThrottle(uint32_t vessel_control, float throttle) {
+    KRPC::Argument* args[] = { new KRPC::Argument(0, new KRPC::pbBytes(vessel_control)), new KRPC::Argument(1, new KRPC::pbBytes(throttle)), NULL };
+    KRPC::Request rq("SpaceCenter", "Control_set_Throttle", args);
+    sendRequest(rq);
+    getIntResponse();
+  }
+}
+
+using namespace std;
+
 void loop() {
   Serial.println("wait 1s");
   delay(1000);
   // reconnect if necessary
   connect();
 
-  uint32_t active_vessel;
-  uint32_t vessel_control;
+  uint32_t active_vessel = KRPC::active_vessel();
+  uint32_t vessel_control = KRPC::control(active_vessel);
   /* Prepare message */
-  {
-    KRPC::Request rq("SpaceCenter", "get_ActiveVessel");
-    sendRequest(rq);
-    active_vessel = getIntResponse();
-  }
-
-  {
-    KRPC::Argument* args[] = { new KRPC::Argument(0, new KRPC::pbBytes(active_vessel)), NULL };
-    KRPC::Request rq("SpaceCenter", "Vessel_get_Control", args);
-    sendRequest(rq);
-    vessel_control = getIntResponse();
-  }
-
-  {
-    KRPC::Argument* args[] = { new KRPC::Argument(0, new KRPC::pbBytes(vessel_control)), new KRPC::Argument(1, new KRPC::pbBytes(0.5f)), NULL };
-    KRPC::Request rq("SpaceCenter", "Control_set_Throttle", args);
-    sendRequest(rq);
-    getIntResponse();
-  }
+  KRPC::setThrottle(vessel_control, 0.5f);
 
   // close connection
   Serial.println("shutdown");
