@@ -234,31 +234,20 @@ class Response {
     Response(pb_istream_t *stream) : m_stream(stream) {
       resp = krpc_schema_Response_init_zero;
     };
-    uint64_t decode_uint64() {
-      uint64_t val;
+    bool decode(uint32_t &val) {
       resp.return_value.funcs.decode = &read_varint;
       resp.return_value.arg = &val;
-      if (v_decode()) {
-        return val;
-      }
-      return -1;
+      return v_decode();
     };
-    uint32_t decode_uint32() {
-      uint32_t val;
+    bool decode(float &val) {
       resp.return_value.funcs.decode = &read_fixed32;
       resp.return_value.arg = &val;
-      if (v_decode()) {
-        return val;
-      }
-      return -1;
+      return v_decode();
     };
-    float decode_float() {
-      uint32_t val = v_decode();
-      if (resp.has_return_value) {
-        return (float)val;
-      } else {
-        return -1.0;
-      }
+    bool decode_fixed(uint32_t &val) {
+      resp.return_value.funcs.decode = &read_fixed32;
+      resp.return_value.arg = &val;
+      return v_decode();
     };
     krpc_schema_Response resp;
   private:
@@ -317,8 +306,10 @@ uint32_t getIntResponse() {
   // decode response
   pb_istream_t stream = {&wifiistreamcallback, NULL, SIZE_MAX};
   KRPC::Response R(&stream);
-  uint32_t val = R.decode_uint64();
-  Serial.print("v=");
+  uint32_t val;
+  bool status = R.decode(val);
+  Serial.print("status="); Serial.print(status);
+  Serial.print("\tv=");
   Serial.print(val);
   Serial.print("\thas_err=");
   Serial.print(R.resp.has_error);
