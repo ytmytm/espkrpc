@@ -80,27 +80,6 @@ static bool write_string(pb_ostream_t *stream, const pb_field_t *field, void * c
          && pb_encode_string(stream, (const pb_byte_t*)*arg, strlen((const char*)*arg));
 }
 
-class Request : public pbElement {
-  public:
-    Request(const char *service, const char *procedure, Argument **arguments = NULL) : m_service(service), m_procedure(procedure), m_arguments(arguments) { };
-    bool encode(pb_ostream_t *stream, const pb_field_t *field = NULL, void * const * arg = NULL) {
-      krpc_schema_Request message = krpc_schema_Request_init_zero;
-      message.service.funcs.encode = &write_string;
-      message.service.arg = (void*)m_service;
-      message.procedure.funcs.encode = &write_string;
-      message.procedure.arg = (void*)m_procedure;
-      if (m_arguments != NULL) {
-        message.arguments.funcs.encode = &write_repeated_args;
-      };
-      message.arguments.arg = m_arguments;
-      return pb_encode_delimited(stream, krpc_schema_Request_fields, &message);
-    };
-  private:
-    const char *m_service;
-    const char *m_procedure;
-    Argument **m_arguments;
-};
-
 // decoding part
 
 bool read_print_string(pb_istream_t *stream, const pb_field_t *field, void **arg) {
@@ -149,129 +128,109 @@ bool read_fixed64(pb_istream_t *stream, const pb_field_t *field, void **arg) {
   return true;
 }
 
-class Response {
-  public:
-    Response(pb_istream_t *stream) : m_stream(stream) {
-      resp = krpc_schema_Response_init_zero;
-    };
-    bool decode(uint32_t &val) {
-      resp.return_value.funcs.decode = &read_varint;
-      resp.return_value.arg = &val;
-      return v_decode();
-    };
-    bool decode(float &val) {
-      resp.return_value.funcs.decode = &read_fixed32;
-      resp.return_value.arg = &val;
-      return v_decode();
-    };
-    bool decode(double &val) {
-      resp.return_value.funcs.decode = &read_fixed64;
-      resp.return_value.arg = &val;
-      return v_decode();
-    };
-    bool decode_fixed(uint32_t &val) {
-      resp.return_value.funcs.decode = &read_fixed32;
-      resp.return_value.arg = &val;
-      return v_decode();
-    };
-    krpc_schema_Response resp;
-  private:
-    bool v_decode() {
-      resp.error.funcs.decode = &read_print_string;
-      return pb_decode_delimited(m_stream, krpc_schema_Response_fields, &resp);
-    };
-    pb_istream_t *m_stream;
-};
-
-}
-
-using namespace std;
-
-bool sendRequest(KRPC::Request &rq)  {
-  /* Create a stream that will write to our buffer. */
-  pb_ostream_t stream = pb_ostream_from_buffer(buffer, sizeof(buffer));
-
-  /* Now we are ready to encode the message! */
-  /* Then just check for any errors.. */
-  if (!rq.encode(&stream)) {
-    Serial.print("Encoding failed:");
-    Serial.println(PB_GET_ERROR(&stream));
-    return false;
-  }
-  Serial.print("Encoded ");
-  Serial.println(stream.bytes_written);
-  /* dump to terminal */
-  for (unsigned int i = 0; i < stream.bytes_written; i++) {
-    Serial.print(buffer[i], HEX);
-  }
-  Serial.println();
-  // send message - first its length then body
-  Serial.println(client.write((const uint8_t*)buffer, stream.bytes_written));
-  delay(0);
-  return true;
-}
-
 bool wifiistreamcallback(pb_istream_t *stream, uint8_t *buf, size_t count) {
   // if end of file or no data or connection closed/dropped, set stream->bytes_left to 0
   return (client.read(buf, count) == count);
 }
 
-uint32_t getIntResponse() {
-  // wait for response to come
-  while (client.available() == 0) { };
-  // decode response
-  pb_istream_t stream = {&wifiistreamcallback, NULL, SIZE_MAX};
-  KRPC::Response R(&stream);
-  uint32_t val;
-  bool status = R.decode(val);
-  Serial.print("status="); Serial.print(status);
-  Serial.print("\tv=");
-  Serial.print(val);
-  Serial.print("\thas_err=");
-  Serial.print(R.resp.has_error);
-  Serial.print("\thas_val=");
-  Serial.print(R.resp.has_return_value);
-  Serial.print("\ttime=");
-  Serial.println(R.resp.time);
-  return val;
+class Response {
+  public:
+    Response() {
+      resp = krpc_schema_Response_init_zero;
+      m_stream = {&wifiistreamcallback, NULL, SIZE_MAX};
+    };
+    bool decode(uint32_t &val) {
+      resp.return_value.funcs.decode = &read_varint;
+      resp.return_value.arg = &val;
+      return v_decode() || resp.has_error;
+    };
+    bool decode(float &val) {
+      resp.return_value.funcs.decode = &read_fixed32;
+      resp.return_value.arg = &val;
+      return v_decode() || resp.has_error;
+    };
+    bool decode(double &val) {
+      resp.return_value.funcs.decode = &read_fixed64;
+      resp.return_value.arg = &val;
+      return v_decode() || resp.has_error;
+    };
+    bool decode_fixed(uint32_t &val) {
+      resp.return_value.funcs.decode = &read_fixed32;
+      resp.return_value.arg = &val;
+      return v_decode() || resp.has_error;
+    };
+    krpc_schema_Response resp;
+  private:
+    bool v_decode() {
+      resp.error.funcs.decode = &read_print_string;
+      // wait for data to come
+      while (client.available() == 0) { };
+      return pb_decode_delimited(&m_stream, krpc_schema_Response_fields, &resp);
+    };
+    pb_istream_t m_stream;
+};
+
+class Request : public pbElement {
+  public:
+    Request(const char *service, const char *procedure, Argument **arguments = NULL) : m_service(service), m_procedure(procedure), m_arguments(arguments) { };
+    bool encode(pb_ostream_t *stream, const pb_field_t *field = NULL, void * const * arg = NULL) {
+      krpc_schema_Request message = krpc_schema_Request_init_zero;
+      message.service.funcs.encode = &write_string;
+      message.service.arg = (void*)m_service;
+      message.procedure.funcs.encode = &write_string;
+      message.procedure.arg = (void*)m_procedure;
+      if (m_arguments != NULL) {
+        message.arguments.funcs.encode = &write_repeated_args;
+      };
+      message.arguments.arg = m_arguments;
+      return pb_encode_delimited(stream, krpc_schema_Request_fields, &message);
+    };
+    bool getResponse() {
+      uint32_t val;
+      send();
+      return m_response.decode(val);
+    }
+    bool getResponse(uint32_t &val) {
+      send();
+      return m_response.decode(val);
+    }
+    bool getResponse(float &val) {
+      send();
+      return m_response.decode(val);
+    }
+    bool getResponse(double &val) {
+      send();
+      return m_response.decode(val);
+    }
+  private:
+    KRPC::Response m_response;
+    const char *m_service;
+    const char *m_procedure;
+    Argument **m_arguments;
+    bool send()  {
+      /* Create a stream that will write to our buffer. */
+      pb_ostream_t stream = pb_ostream_from_buffer(buffer, sizeof(buffer));
+
+      /* Now we are ready to encode the message! */
+      /* Then just check for any errors.. */
+      if (!encode(&stream)) {
+        Serial.print("Encoding failed:");
+        Serial.println(PB_GET_ERROR(&stream));
+        return false;
+      }
+      Serial.print("Encoded ");
+      Serial.println(stream.bytes_written);
+      /* dump to terminal */
+      for (unsigned int i = 0; i < stream.bytes_written; i++) {
+        Serial.print(buffer[i], HEX);
+      }
+      Serial.println();
+      // send message - first its length then body
+      Serial.println(client.write((const uint8_t*)buffer, stream.bytes_written));
+      delay(0);
+      return true;
+    }
+};
+
 }
 
-float getFloatResponse() {
-  // wait for response to come
-  while (client.available() == 0) { };
-  // decode response
-  pb_istream_t stream = {&wifiistreamcallback, NULL, SIZE_MAX};
-  KRPC::Response R(&stream);
-  float val;
-  bool status = R.decode(val);
-  Serial.print("status="); Serial.print(status);
-  Serial.print("\tv=");
-  Serial.print(val);
-  Serial.print("\thas_err=");
-  Serial.print(R.resp.has_error);
-  Serial.print("\thas_val=");
-  Serial.print(R.resp.has_return_value);
-  Serial.print("\ttime=");
-  Serial.println(R.resp.time);
-  return val;
-}
-
-double getDoubleResponse() {
-  // wait for response to come
-  while (client.available() == 0) { };
-  // decode response
-  pb_istream_t stream = {&wifiistreamcallback, NULL, SIZE_MAX};
-  KRPC::Response R(&stream);
-  double val;
-  bool status = R.decode(val);
-  Serial.print("status="); Serial.print(status);
-  Serial.print("\tv=");
-  Serial.print(val);
-  Serial.print("\thas_err=");
-  Serial.print(R.resp.has_error);
-  Serial.print("\thas_val=");
-  Serial.print(R.resp.has_return_value);
-  Serial.print("\ttime=");
-  Serial.println(R.resp.time);
-  return val;
-}
