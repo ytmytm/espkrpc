@@ -347,6 +347,13 @@ namespace KRPC {
     sendRequest(rq);
     return getIntResponse();
   }
+  // resources
+  uint32_t resources(uint32_t active_vessel) {
+    KRPC::Argument* args[] = { new KRPC::Argument(0, new KRPC::pbBytes(active_vessel)), NULL };
+    KRPC::Request rq("SpaceCenter", "Vessel_get_Resources", args);
+    sendRequest(rq);
+    return getIntResponse();
+  }
   // control
   uint32_t control(uint32_t active_vessel) {
     KRPC::Argument* args[] = { new KRPC::Argument(0, new KRPC::pbBytes(active_vessel)), NULL };
@@ -414,6 +421,8 @@ void loop() {
   uint32_t active_vessel = KRPC::active_vessel();
   uint32_t vessel_control = KRPC::control(active_vessel);
   uint32_t auto_pilot = KRPC::autoPilot(active_vessel);
+  uint32_t resources = KRPC::resources(active_vessel);
+
   KRPC::setThrottle(vessel_control, 1.0f);
   delay(500);
   KRPC::setThrottle(vessel_control, 0.0f);
