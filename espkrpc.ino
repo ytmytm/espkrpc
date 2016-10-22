@@ -341,16 +341,24 @@ float getFloatResponse() {
 
 
 namespace KRPC {
+  // vessel
   uint32_t active_vessel(void) {
     KRPC::Request rq("SpaceCenter", "get_ActiveVessel");
     sendRequest(rq);
     return getIntResponse();
   }
+  // control
   uint32_t control(uint32_t active_vessel) {
     KRPC::Argument* args[] = { new KRPC::Argument(0, new KRPC::pbBytes(active_vessel)), NULL };
     KRPC::Request rq("SpaceCenter", "Vessel_get_Control", args);
     sendRequest(rq);
     return getIntResponse();
+  }
+  void activateNextStage(uint32_t vessel_control) {
+    KRPC::Argument* args[] = { new KRPC::Argument(0, new KRPC::pbBytes(vessel_control)), NULL };
+    KRPC::Request rq("SpaceCenter", "Control_ActivateNextStage", args);
+    sendRequest(rq);
+    getIntResponse();
   }
   float getThrottle(uint32_t vessel_control) {
     KRPC::Argument* args[] = { new KRPC::Argument(0, new KRPC::pbBytes(vessel_control)), NULL };
@@ -364,9 +372,38 @@ namespace KRPC {
     sendRequest(rq);
     getIntResponse();
   }
+  // autopilot
+  uint32_t autoPilot(uint32_t active_vessel) {
+    KRPC::Argument* args[] = { new KRPC::Argument(0, new KRPC::pbBytes(active_vessel)), NULL };
+    KRPC::Request rq("SpaceCenter", "Vessel_get_AutoPilot", args);
+    sendRequest(rq);
+    return getIntResponse();
+  }
+  void autoPilot_Engage(uint32_t autopilot) {
+    KRPC::Argument* args[] = { new KRPC::Argument(0, new KRPC::pbBytes(autopilot)), NULL };
+    KRPC::Request rq("SpaceCenter", "AutoPilot_Engage", args);
+    sendRequest(rq);
+    getIntResponse();
+  }
+  void autoPilot_TargetPitchAndHeading(uint32_t autopilot, float pitch, float heading) {
+    KRPC::Argument* args[] = { new KRPC::Argument(0, new KRPC::pbBytes(autopilot)), new KRPC::Argument(1, new KRPC::pbBytes(pitch)), new KRPC::Argument(2, new KRPC::pbBytes(heading)), NULL };
+    KRPC::Request rq("SpaceCenter", "AutoPilot_TargetPitchAndHeading", args);
+    sendRequest(rq);
+    getIntResponse();
+  }
+  void autoPilot_set_TargetPitch(uint32_t autopilot, float pitch) {
+    KRPC::Argument* args[] = { new KRPC::Argument(0, new KRPC::pbBytes(autopilot)), new KRPC::Argument(1, new KRPC::pbBytes(pitch)), NULL };
+    KRPC::Request rq("SpaceCenter", "AutoPilot_set_TargetPitch", args);
+    sendRequest(rq);
+    getIntResponse();
+  }
+  void autoPilot_set_TargetHeading(uint32_t autopilot, float heading) {
+    KRPC::Argument* args[] = { new KRPC::Argument(0, new KRPC::pbBytes(autopilot)), new KRPC::Argument(1, new KRPC::pbBytes(heading)), NULL };
+    KRPC::Request rq("SpaceCenter", "AutoPilot_set_TargetHeading", args);
+    sendRequest(rq);
+    getIntResponse();
+  }
 }
-
-using namespace std;
 
 void loop() {
   Serial.println("wait 1s");
@@ -376,8 +413,23 @@ void loop() {
 
   uint32_t active_vessel = KRPC::active_vessel();
   uint32_t vessel_control = KRPC::control(active_vessel);
-  /* Prepare message */
-  KRPC::setThrottle(vessel_control, 0.5f);
+  uint32_t auto_pilot = KRPC::autoPilot(active_vessel);
+  KRPC::setThrottle(vessel_control, 1.0f);
+  delay(500);
+  KRPC::setThrottle(vessel_control, 0.0f);
+  for (int i=5; i>=0; i--) {
+    Serial.print(i);
+    delay(1000);
+  }
+  //
+  KRPC::autoPilot_set_TargetPitch(auto_pilot, 90.0f);
+  KRPC::autoPilot_set_TargetHeading(auto_pilot, 90.0f);
+  KRPC::autoPilot_TargetPitchAndHeading(auto_pilot, 90.0f, 90.0f);
+  KRPC::autoPilot_Engage(auto_pilot);
+  KRPC::setThrottle(vessel_control, 1.0f);
+  delay(1000);
+  Serial.print("Launch!");
+  KRPC::activateNextStage(vessel_control);
 
   // close connection
   Serial.println("shutdown");
