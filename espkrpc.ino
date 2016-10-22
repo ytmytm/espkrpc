@@ -233,6 +233,15 @@ bool read_fixed32(pb_istream_t *stream, const pb_field_t *field, void **arg) {
   return true;
 }
 
+bool read_fixed64(pb_istream_t *stream, const pb_field_t *field, void **arg) {
+  uint64_t value;
+  if (!pb_decode_fixed64(stream, &value)) {
+    return false;
+  }
+  *((uint64_t*)*arg) = value;
+  return true;
+}
+
 class Response {
   public:
     Response(pb_istream_t *stream) : m_stream(stream) {
@@ -245,6 +254,11 @@ class Response {
     };
     bool decode(float &val) {
       resp.return_value.funcs.decode = &read_fixed32;
+      resp.return_value.arg = &val;
+      return v_decode();
+    };
+    bool decode(double &val) {
+      resp.return_value.funcs.decode = &read_fixed64;
       resp.return_value.arg = &val;
       return v_decode();
     };
@@ -344,6 +358,25 @@ float getFloatResponse() {
   return val;
 }
 
+double getDoubleResponse() {
+  // wait for response to come
+  while (client.available() == 0) { };
+  // decode response
+  pb_istream_t stream = {&wifiistreamcallback, NULL, SIZE_MAX};
+  KRPC::Response R(&stream);
+  double val;
+  bool status = R.decode(val);
+  Serial.print("status="); Serial.print(status);
+  Serial.print("\tv=");
+  Serial.print(val);
+  Serial.print("\thas_err=");
+  Serial.print(R.resp.has_error);
+  Serial.print("\thas_val=");
+  Serial.print(R.resp.has_return_value);
+  Serial.print("\ttime=");
+  Serial.println(R.resp.time);
+  return val;
+}
 
 namespace KRPC {
   // vessel
@@ -351,6 +384,19 @@ namespace KRPC {
     KRPC::Request rq("SpaceCenter", "get_ActiveVessel");
     sendRequest(rq);
     return getIntResponse();
+  }
+  // flight
+  uint32_t flight(uint32_t active_vessel) {
+    KRPC::Argument* args[] = { new KRPC::Argument(0, new KRPC::pbBytes(active_vessel)), NULL };
+    KRPC::Request rq("SpaceCenter", "Vessel_Flight", args);
+    sendRequest(rq);
+    return getIntResponse();
+  }
+  double flight_get_MeanAltitude(uint32_t vessel_flight) {
+    KRPC::Argument* args[] = { new KRPC::Argument(0, new KRPC::pbBytes(vessel_flight)), NULL };
+    KRPC::Request rq("SpaceCenter", "Flight_get_MeanAltitude", args);
+    sendRequest(rq);
+    return getDoubleResponse();
   }
   // resources
   uint32_t resources(uint32_t active_vessel) {
@@ -429,10 +475,13 @@ void loop() {
   // reconnect if necessary
   connect();
 
+  // Part One: Preparing for Launch
+
   uint32_t active_vessel = KRPC::active_vessel();
   uint32_t vessel_control = KRPC::control(active_vessel);
   uint32_t auto_pilot = KRPC::autoPilot(active_vessel);
   uint32_t vessel_resources = KRPC::resources(active_vessel);
+  uint32_t vessel_flight = KRPC::flight(active_vessel);
 
   KRPC::setThrottle(vessel_control, 1.0f);
   delay(500);
@@ -446,6 +495,7 @@ void loop() {
   KRPC::autoPilot_Engage(auto_pilot);
   KRPC::setThrottle(vessel_control, 1.0f);
   delay(1000);
+  // Part Two: Lift-off!
   Serial.println("Launch!");
   KRPC::activateNextStage(vessel_control);
 
@@ -460,7 +510,20 @@ void loop() {
     Serial.println(fuel);
     delay(1000);
   }
-  Serial.println("Activating second stage");
+  Serial.println("Booster separation");
+  KRPC::activateNextStage(vessel_control);
+
+  // Part Three: Reaching Apoapsis
+  double alt = 0;
+  while (alt < 10000) {
+    Serial.print("Alt:");
+    alt = KRPC::flight_get_MeanAltitude(vessel_flight);
+    Serial.println(alt);
+    delay(1000);
+  }
+  Serial.println("Gravity turn");
+  KRPC::autoPilot_TargetPitchAndHeading(auto_pilot, 60.0f, 90.0f);
+
   KRPC::activateNextStage(vessel_control);
 
   // close connection
