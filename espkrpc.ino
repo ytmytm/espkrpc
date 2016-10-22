@@ -385,6 +385,19 @@ namespace KRPC {
     sendRequest(rq);
     return getIntResponse();
   }
+  // orbit
+  uint32_t orbit(uint32_t active_vessel) {
+    KRPC::Argument* args[] = { new KRPC::Argument(0, new KRPC::pbBytes(active_vessel)), NULL };
+    KRPC::Request rq("SpaceCenter", "Vessel_get_Orbit", args);
+    sendRequest(rq);
+    return getIntResponse();
+  }
+  double orbit_get_ApoapsisAltitude(uint32_t vessel_orbit) {
+    KRPC::Argument* args[] = { new KRPC::Argument(0, new KRPC::pbBytes(vessel_orbit)), NULL };
+    KRPC::Request rq("SpaceCenter", "Orbit_get_ApoapsisAltitude", args);
+    sendRequest(rq);
+    return getDoubleResponse();
+  }
   // flight
   uint32_t flight(uint32_t active_vessel) {
     KRPC::Argument* args[] = { new KRPC::Argument(0, new KRPC::pbBytes(active_vessel)), NULL };
@@ -395,6 +408,12 @@ namespace KRPC {
   double flight_get_MeanAltitude(uint32_t vessel_flight) {
     KRPC::Argument* args[] = { new KRPC::Argument(0, new KRPC::pbBytes(vessel_flight)), NULL };
     KRPC::Request rq("SpaceCenter", "Flight_get_MeanAltitude", args);
+    sendRequest(rq);
+    return getDoubleResponse();
+  }
+  double flight_get_SurfaceAltitude(uint32_t vessel_flight) {
+    KRPC::Argument* args[] = { new KRPC::Argument(0, new KRPC::pbBytes(vessel_flight)), NULL };
+    KRPC::Request rq("SpaceCenter", "Flight_get_SurfaceAltitude", args);
     sendRequest(rq);
     return getDoubleResponse();
   }
@@ -443,6 +462,12 @@ namespace KRPC {
     sendRequest(rq);
     return getIntResponse();
   }
+  void autoPilot_Disengage(uint32_t autopilot) {
+    KRPC::Argument* args[] = { new KRPC::Argument(0, new KRPC::pbBytes(autopilot)), NULL };
+    KRPC::Request rq("SpaceCenter", "AutoPilot_Disengage", args);
+    sendRequest(rq);
+    getIntResponse();
+  }
   void autoPilot_Engage(uint32_t autopilot) {
     KRPC::Argument* args[] = { new KRPC::Argument(0, new KRPC::pbBytes(autopilot)), NULL };
     KRPC::Request rq("SpaceCenter", "AutoPilot_Engage", args);
@@ -482,6 +507,7 @@ void loop() {
   uint32_t auto_pilot = KRPC::autoPilot(active_vessel);
   uint32_t vessel_resources = KRPC::resources(active_vessel);
   uint32_t vessel_flight = KRPC::flight(active_vessel);
+  uint32_t vessel_orbit = KRPC::orbit(active_vessel);
 
   KRPC::setThrottle(vessel_control, 1.0f);
   delay(500);
@@ -516,14 +542,35 @@ void loop() {
   // Part Three: Reaching Apoapsis
   double alt = 0;
   while (alt < 10000) {
+    delay(1000);
     Serial.print("Alt:");
     alt = KRPC::flight_get_MeanAltitude(vessel_flight);
     Serial.println(alt);
-    delay(1000);
   }
   Serial.println("Gravity turn");
   KRPC::autoPilot_TargetPitchAndHeading(auto_pilot, 60.0f, 90.0f);
 
+  alt = 0;
+  while (alt < 100000) {
+    delay(1000);
+    Serial.print("ApoAlt:");
+    alt = KRPC::orbit_get_ApoapsisAltitude(vessel_orbit);
+    Serial.println(alt);
+  }
+  //
+  KRPC::setThrottle(vessel_control, 0.0f);
+  delay(1000);
+  KRPC::activateNextStage(vessel_control);
+  KRPC::autoPilot_Disengage(auto_pilot);
+
+  // Part Four: Returning Safely to Kerbin
+  alt = 100000;
+  while (alt > 1000) {
+    delay(1000);
+    Serial.print("SurfAlt:");
+    alt = KRPC::flight_get_SurfaceAltitude(vessel_flight);
+    Serial.println(alt);
+  }
   KRPC::activateNextStage(vessel_control);
 
   // close connection
