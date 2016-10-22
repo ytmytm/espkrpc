@@ -4,6 +4,8 @@
 
 using namespace std;
 
+// Arduino IDE settings: WeMos D1 R2 & mini, 160 MHz, 921600, 4M (1M SPIFFS)
+
 //  tcpdump -Xvvv -n -s 1000 -i any host 192.168.2.168 and port 50000 and tcp
 
 #ifdef ESP8266
