@@ -218,6 +218,9 @@ class Request : public pbElement {
         Serial.println(PB_GET_ERROR(&stream));
         return false;
       }
+      size_t res = client.write((const uint8_t*)buffer, stream.bytes_written);
+      delay(0);
+      return true;
       Serial.print("Encoded ");
       Serial.println(stream.bytes_written);
       /* dump to terminal */
@@ -226,9 +229,7 @@ class Request : public pbElement {
       }
       Serial.println();
       // send message - first its length then body
-      Serial.println(client.write((const uint8_t*)buffer, stream.bytes_written));
-      delay(0);
-      return true;
+      Serial.println(res);
     }
 };
 
