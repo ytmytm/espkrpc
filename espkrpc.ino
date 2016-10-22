@@ -6,6 +6,7 @@ using namespace std;
 
 // Arduino IDE settings: WeMos D1 R2 & mini, 160 MHz, 921600, 4M (1M SPIFFS)
 
+//  tcpdump -Xvvv -n -s 1000 -i wlan0 src host 192.168.2.54 and port 50000 and tcp
 //  tcpdump -Xvvv -n -s 1000 -i any host 192.168.2.168 and port 50000 and tcp
 
 #ifdef ESP8266
@@ -108,14 +109,15 @@ static bool write_pbElement(pb_ostream_t *stream, const pb_field_t *field, void 
   return ((pbElement*)*arg)->encode(stream, field, NULL);
 }
 
-enum pbBytes_t { pbvarint, pbfloat };
+enum pbBytes_t { pbvarint, pbfloat, pbstring };
 
 class pbBytes : public pbElement {
   public:
     pbBytes(const uint32_t value) : m_type(pbvarint) { m_value.m_uint32=value; };
     pbBytes(const float value) : m_type(pbfloat) { m_value.m_float=value; };
+    pbBytes(char *value) : m_type(pbstring) { m_value.m_char=value; };
     bool encode(pb_ostream_t *stream, const pb_field_t *field, void * const * arg = NULL) {
-      uint8_t buffer[16];
+      uint8_t buffer[128];
       pb_ostream_t local_stream = pb_ostream_from_buffer(buffer, sizeof(buffer));
       switch (m_type) {
         case pbvarint:
@@ -123,6 +125,9 @@ class pbBytes : public pbElement {
           break;
         case pbfloat:
           pb_encode_fixed32(&local_stream, (void*)&m_value.m_float);
+          break;
+        case pbstring:
+          pb_encode_string(&local_stream, (const pb_byte_t*)m_value.m_char, strlen((const char*)m_value.m_char));
           break;
       };
       return pb_encode_tag_for_field(stream, field) &&
@@ -354,6 +359,12 @@ namespace KRPC {
     sendRequest(rq);
     return getIntResponse();
   }
+  float resources_Amount(uint32_t vessel_resource, char *resource_name) {
+    KRPC::Argument* args[] = { new KRPC::Argument(0, new KRPC::pbBytes(vessel_resource)), new KRPC::Argument(1, new KRPC::pbBytes(resource_name)), NULL };
+    KRPC::Request rq("SpaceCenter", "Resources_Amount", args);
+    sendRequest(rq);
+    return getFloatResponse();
+  }
   // control
   uint32_t control(uint32_t active_vessel) {
     KRPC::Argument* args[] = { new KRPC::Argument(0, new KRPC::pbBytes(active_vessel)), NULL };
@@ -421,23 +432,35 @@ void loop() {
   uint32_t active_vessel = KRPC::active_vessel();
   uint32_t vessel_control = KRPC::control(active_vessel);
   uint32_t auto_pilot = KRPC::autoPilot(active_vessel);
-  uint32_t resources = KRPC::resources(active_vessel);
+  uint32_t vessel_resources = KRPC::resources(active_vessel);
 
   KRPC::setThrottle(vessel_control, 1.0f);
   delay(500);
   KRPC::setThrottle(vessel_control, 0.0f);
   for (int i=5; i>=0; i--) {
-    Serial.print(i);
+    Serial.println(i);
     delay(1000);
   }
   //
-  KRPC::autoPilot_set_TargetPitch(auto_pilot, 90.0f);
-  KRPC::autoPilot_set_TargetHeading(auto_pilot, 90.0f);
   KRPC::autoPilot_TargetPitchAndHeading(auto_pilot, 90.0f, 90.0f);
   KRPC::autoPilot_Engage(auto_pilot);
   KRPC::setThrottle(vessel_control, 1.0f);
   delay(1000);
-  Serial.print("Launch!");
+  Serial.println("Launch!");
+  KRPC::activateNextStage(vessel_control);
+
+  float fuel = 1;
+  while (fuel>0.1) {
+    Serial.print("Fuel:");
+    fuel = KRPC::resources_Amount(vessel_resources, "LiquidFuel");
+    Serial.print("\t");
+    Serial.print(fuel);
+    fuel = KRPC::resources_Amount(vessel_resources, "SolidFuel");
+    Serial.print("\t");
+    Serial.println(fuel);
+    delay(1000);
+  }
+  Serial.println("Activating second stage");
   KRPC::activateNextStage(vessel_control);
 
   // close connection
