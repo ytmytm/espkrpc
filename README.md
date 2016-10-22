@@ -12,6 +12,19 @@ Instead of reference Google Protobuf library I used [Nanopb](https://github.com/
 
 This version is based on kRPC-0.3.6 protocol.
 
+# What is...
+
+## Kerbal Space Program
+An awesome game where you fail and fail again, and then you crash and burn.
+
+## kRPC
+A mod for KSP that allows to control what happens in the game from outside scripts written in popular languages like Python, Lua, C# and C++.
+"RPC" stands for "Remote Procedure Call" and the connection is provided by a TCP/IP server running on computer with the game. The scripts may
+run on remote machines and connect to the game over network.
+
+## ESP8266
+Incredible platform for custom amateur Internet-of-Things development. This is a very low cost WiFi chip with full TCP/IP stack and microcontroller.
+
 # Possible usage scenarios
 
 - remote monitoring of KSP flight parameters to show on custom physical displays (LEDs, LCDs, custom meters, etc.)
@@ -28,7 +41,9 @@ This version is based on kRPC-0.3.6 protocol.
 
 ## Hardware
 
-This was developed and tested on [Wemos D1 mini](https://www.wemos.cc/product/d1-mini.html) board.
+This was developed and tested on [Wemos D1 mini](https://www.wemos.cc/product/d1-mini.html) board. Basically this is ESP-12F module put on a board
+with integrated serial to USB interface.
+
 You can find more information how to get started with Arduino on [Wemos pages](https://www.wemos.cc/tutorial/get-started-arduino.html).
 
 # Current status
