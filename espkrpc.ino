@@ -319,6 +319,27 @@ uint32_t getIntResponse() {
   return val;
 }
 
+float getFloatResponse() {
+  // wait for response to come
+  while (client.available() == 0) { };
+  // decode response
+  pb_istream_t stream = {&wifiistreamcallback, NULL, SIZE_MAX};
+  KRPC::Response R(&stream);
+  float val;
+  bool status = R.decode(val);
+  Serial.print("status="); Serial.print(status);
+  Serial.print("\tv=");
+  Serial.print(val);
+  Serial.print("\thas_err=");
+  Serial.print(R.resp.has_error);
+  Serial.print("\thas_val=");
+  Serial.print(R.resp.has_return_value);
+  Serial.print("\ttime=");
+  Serial.println(R.resp.time);
+  return val;
+}
+
+
 namespace KRPC {
   uint32_t active_vessel(void) {
     KRPC::Request rq("SpaceCenter", "get_ActiveVessel");
@@ -330,6 +351,12 @@ namespace KRPC {
     KRPC::Request rq("SpaceCenter", "Vessel_get_Control", args);
     sendRequest(rq);
     return getIntResponse();
+  }
+  float getThrottle(uint32_t vessel_control) {
+    KRPC::Argument* args[] = { new KRPC::Argument(0, new KRPC::pbBytes(vessel_control)), NULL };
+    KRPC::Request rq("SpaceCenter", "Control_get_Throttle", args);
+    sendRequest(rq);
+    return getFloatResponse();
   }
   void setThrottle(uint32_t vessel_control, float throttle) {
     KRPC::Argument* args[] = { new KRPC::Argument(0, new KRPC::pbBytes(vessel_control)), new KRPC::Argument(1, new KRPC::pbBytes(throttle)), NULL };
