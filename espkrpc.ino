@@ -178,7 +178,9 @@ void loop() {
   // Part Four: Returning Safely to Kerbin
   alt = 100000;
   while (alt > 1000) {
-    delay(1000);
+    if (alt>2000) {
+      delay(1000);  // sample with lower frequency until we are close to the ground
+    }
     Serial.print("SurfAlt:");
     alt = KRPC::flight_get_SurfaceAltitude(vessel_flight);
     Serial.println(alt);
