@@ -58,3 +58,18 @@ My C++ wrapper over Nanopb is clumsy, but at least it hides all the ugly callbac
 The object model for SpaceCenter service is a joke, it is just a thin wrapper over kRPC calls. It's your responsibility to keep track of vessel, control, flight, orbit references.
 
 I learn as I code, so I would also welcome any suggestions how to improve the code also with C++11 features in mind.
+
+# How to rebuld krpc.pb.[ch] from krpc.proto
+
+Just follow instructions from Nanopb
+
+Update the copy of [krpc.proto file from kRPC repository](https://github.com/krpc/krpc/blob/master/protobuf/krpc.proto)
+
+Compile .proto file to krpc.pb file with `protoc` compiler that comes with Google Protobuf
+```
+protoc -okrpc.pb krpc.proto
+```
+Then process it with nanopb generator:
+```
+nanopb/generator/nanopb_generator.py krpc.pb
+```
