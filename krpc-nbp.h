@@ -20,9 +20,15 @@ enum pbBytes_t { pbvarint, pbfloat, pbstring };
 
 class pbBytes : public pbElement {
   public:
-    pbBytes(const uint32_t value) : m_type(pbvarint) { m_value.m_uint32=value; };
-    pbBytes(const float value) : m_type(pbfloat) { m_value.m_float=value; };
-    pbBytes(char *value) : m_type(pbstring) { m_value.m_char=value; };
+    pbBytes(const uint32_t value) : m_type(pbvarint) {
+      m_value.m_uint32 = value;
+    };
+    pbBytes(const float value) : m_type(pbfloat) {
+      m_value.m_float = value;
+    };
+    pbBytes(char *value) : m_type(pbstring) {
+      m_value.m_char = value;
+    };
     bool encode(pb_ostream_t *stream, const pb_field_t *field, void * const * arg = NULL) {
       uint8_t buffer[128];
       pb_ostream_t local_stream = pb_ostream_from_buffer(buffer, sizeof(buffer));
@@ -42,7 +48,7 @@ class pbBytes : public pbElement {
              pb_write(stream, buffer, local_stream.bytes_written);   // data itself
     };
   private:
-     union {
+    union {
       uint32_t m_uint32;
       float m_float;
       char *m_char;
@@ -74,8 +80,7 @@ static bool write_repeated_args(pb_ostream_t *stream, const pb_field_t *field, v
   return b;
 }
 
-static bool write_string(pb_ostream_t *stream, const pb_field_t *field, void * const *arg)
-{
+static bool write_string(pb_ostream_t *stream, const pb_field_t *field, void * const *arg) {
   return pb_encode_tag_for_field(stream, field)
          && pb_encode_string(stream, (const pb_byte_t*)*arg, strlen((const char*)*arg));
 }
@@ -89,9 +94,9 @@ bool read_print_string(pb_istream_t *stream, const pb_field_t *field, void **arg
   Serial.print("string length is ");
   Serial.println(len);
   Serial.print("[");
-  memset(buf,0,sizeof(buf));
-  for (unsigned i=0;i<len;i++) {
-    if (!pb_read(stream,buf,1)) {
+  memset(buf, 0, sizeof(buf));
+  for (unsigned i = 0; i < len; i++) {
+    if (!pb_read(stream, buf, 1)) {
       return false;
     }
     Serial.print((const char*)buf);

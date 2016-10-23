@@ -124,7 +124,7 @@ void loop() {
   KRPC::setThrottle(vessel_control, 1.0f);
   delay(500);
   KRPC::setThrottle(vessel_control, 0.0f);
-  for (int i=5; i>=0; i--) {
+  for (int i = 5; i >= 0; i--) {
     Serial.println(i);
     delay(1000);
   }
@@ -138,7 +138,7 @@ void loop() {
   KRPC::activateNextStage(vessel_control);
 
   float fuel = 1;
-  while (fuel>0.1) {
+  while (fuel > 0.1) {
     Serial.print("Fuel:");
     fuel = KRPC::resources_Amount(vessel_resources, "LiquidFuel");
     Serial.print("\t");
@@ -178,7 +178,7 @@ void loop() {
   // Part Four: Returning Safely to Kerbin
   alt = 100000;
   while (alt > 1000) {
-    if (alt>2000) {
+    if (alt > 2000) {
       delay(1000);  // sample with lower frequency until we are close to the ground
     }
     Serial.print("SurfAlt:");
