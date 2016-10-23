@@ -154,7 +154,7 @@ void loop() {
   // Part Three: Reaching Apoapsis
   double alt = 0;
   while (alt < 10000) {
-    delay(1000);
+    //delay(1000); how fast we can go? about 20rpc/s
     Serial.print("Alt:");
     alt = KRPC::flight_get_MeanAltitude(vessel_flight);
     Serial.println(alt);
