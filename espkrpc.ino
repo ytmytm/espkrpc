@@ -67,6 +67,7 @@ void connectkRPC() {
   Serial.println("Sending hello");
   Serial.println(client.connected());
   Serial.println(client.write((const uint8_t*)kRPCHello, sizeof(kRPCHello) - 1)); // -1 because without terminating 0
+  delay(0);
   Serial.println(client.write((const uint8_t*)clientname, sizeof(clientname)));
   delay(0);
   // wait for response
