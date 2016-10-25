@@ -235,6 +235,7 @@ class Request : public pbElement {
       Serial.println();
       // send message - first its length then body
       Serial.println(res);
+      return true;
     }
 };
 
