@@ -30,7 +30,9 @@ class pbBytes : public pbElement {
       m_value.m_char = value;
     };
     bool encode(pb_ostream_t *stream, const pb_field_t *field, void * const * arg = NULL) {
-      uint8_t buffer[128];
+      size_t bufsize = 6;
+      if (m_type==pbstring) bufsize += strlen((const char*)m_value.m_char);
+      uint8_t buffer[bufsize];
       pb_ostream_t local_stream = pb_ostream_from_buffer(buffer, sizeof(buffer));
       switch (m_type) {
         case pbvarint:
