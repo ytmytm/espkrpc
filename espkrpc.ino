@@ -131,6 +131,7 @@ void loop() {
 
   autopilot.set_target_pitch_and_heading(90.0f, 90.0f);
   autopilot.engage();
+  // vessel.auto_pilot().engage(); // this will call autopilot destructor
   control.throttle(1.0f);
   delay(1000);
 
