@@ -114,66 +114,67 @@ void loop() {
 
   // Part One: Preparing for Launch
 
-  uint32_t active_vessel = KRPC::active_vessel();
-  uint32_t vessel_control = KRPC::control(active_vessel);
-  uint32_t auto_pilot = KRPC::autoPilot(active_vessel);
-  uint32_t vessel_resources = KRPC::resources(active_vessel);
-  uint32_t vessel_flight = KRPC::flight(active_vessel);
-  uint32_t vessel_orbit = KRPC::orbit(active_vessel);
+  KRPC::services::Vessel vessel = KRPC::services::SpaceCenter.active_vessel();
+  KRPC::services::Control control = vessel.control();
+  KRPC::services::Flight flight = vessel.flight();
+  KRPC::services::Resources resources = vessel.resources();
+  KRPC::services::AutoPilot autopilot = vessel.auto_pilot();
+  KRPC::services::Orbit orbit = vessel.orbit();
 
-  KRPC::setThrottle(vessel_control, 1.0f);
+  control.throttle(1.0f);
   delay(500);
-  KRPC::setThrottle(vessel_control, 0.0f);
+  control.throttle(0.0f);
   for (int i = 5; i >= 0; i--) {
     Serial.println(i);
     delay(1000);
   }
-  //
-  KRPC::autoPilot_TargetPitchAndHeading(auto_pilot, 90.0f, 90.0f);
-  KRPC::autoPilot_Engage(auto_pilot);
-  KRPC::setThrottle(vessel_control, 1.0f);
+
+  autopilot.set_target_pitch_and_heading(90.0f, 90.0f);
+  autopilot.engage();
+  control.throttle(1.0f);
   delay(1000);
+
   // Part Two: Lift-off!
   Serial.println("Launch!");
-  KRPC::activateNextStage(vessel_control);
+  control.activate_next_stage();
 
   float fuel = 1;
   while (fuel > 0.1) {
     Serial.print("Fuel:");
-    fuel = KRPC::resources_Amount(vessel_resources, "LiquidFuel");
+    fuel = resources.amount("LiquidFuel");
     Serial.print("\t");
     Serial.print(fuel);
-    fuel = KRPC::resources_Amount(vessel_resources, "SolidFuel");
+    fuel = resources.amount("SolidFuel");
     Serial.print("\t");
     Serial.println(fuel);
     delay(1000);
   }
   Serial.println("Booster separation");
-  KRPC::activateNextStage(vessel_control);
+  control.activate_next_stage();
 
   // Part Three: Reaching Apoapsis
   double alt = 0;
   while (alt < 10000) {
     //delay(1000); how fast we can go? about 20rpc/s
     Serial.print("Alt:");
-    alt = KRPC::flight_get_MeanAltitude(vessel_flight);
+    alt = flight.mean_altitude();
     Serial.println(alt);
   }
   Serial.println("Gravity turn");
-  KRPC::autoPilot_TargetPitchAndHeading(auto_pilot, 60.0f, 90.0f);
+  autopilot.set_target_pitch_and_heading(60.0f, 90.0f);
 
   alt = 0;
   while (alt < 100000) {
     delay(1000);
     Serial.print("ApoAlt:");
-    alt = KRPC::orbit_get_ApoapsisAltitude(vessel_orbit);
+    alt = orbit.apoapsis_altitude();
     Serial.println(alt);
   }
   //
-  KRPC::setThrottle(vessel_control, 0.0f);
+  control.throttle(0.0f);
   delay(1000);
-  KRPC::activateNextStage(vessel_control);
-  KRPC::autoPilot_Disengage(auto_pilot);
+  control.activate_next_stage();
+  autopilot.disengage();
 
   // Part Four: Returning Safely to Kerbin
   alt = 100000;
@@ -182,10 +183,10 @@ void loop() {
       delay(1000);  // sample with lower frequency until we are close to the ground
     }
     Serial.print("SurfAlt:");
-    alt = KRPC::flight_get_SurfaceAltitude(vessel_flight);
+    alt = flight.surface_altitude();
     Serial.println(alt);
   }
-  KRPC::activateNextStage(vessel_control);
+  control.activate_next_stage();
 
   // close connection
   Serial.println("shutdown");
