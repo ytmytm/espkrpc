@@ -112,8 +112,10 @@ void loop() {
   // reconnect if necessary
   connect();
 
-  // Part One: Preparing for Launch
+  uint32 hcount=0;
 
+  // Part One: Preparing for Launch
+Serial.printf("heap size %i: %u\n", hcount++, ESP.getFreeHeap());
   KRPC::services::Vessel vessel = KRPC::services::SpaceCenter.active_vessel();
   KRPC::services::Control control = vessel.control();
   KRPC::services::Flight flight = vessel.flight();
@@ -121,6 +123,7 @@ void loop() {
   KRPC::services::AutoPilot autopilot = vessel.auto_pilot();
   KRPC::services::Orbit orbit = vessel.orbit();
 
+Serial.printf("heap size %i: %u\n", hcount++, ESP.getFreeHeap());
   control.throttle(1.0f);
   delay(500);
   control.throttle(0.0f);
@@ -129,7 +132,9 @@ void loop() {
     delay(1000);
   }
 
+Serial.printf("heap size %i: %u\n", hcount++, ESP.getFreeHeap());
   autopilot.set_target_pitch_and_heading(90.0f, 90.0f);
+Serial.printf("heap size %i: %u\n", hcount++, ESP.getFreeHeap());
   autopilot.engage();
   // vessel.auto_pilot().engage(); // this will call autopilot destructor
   control.throttle(1.0f);
@@ -137,6 +142,7 @@ void loop() {
 
   // Part Two: Lift-off!
   Serial.println("Launch!");
+Serial.printf("heap size %i: %u\n", hcount++, ESP.getFreeHeap());
   control.activate_next_stage();
 
   float fuel = 1;
@@ -150,8 +156,10 @@ void loop() {
     Serial.println(fuel);
     delay(1000);
   }
+Serial.printf("heap size %i: %u\n", hcount++, ESP.getFreeHeap());
   Serial.println("Booster separation");
   control.activate_next_stage();
+Serial.printf("heap size %i: %u\n", hcount++, ESP.getFreeHeap());
 
   // Part Three: Reaching Apoapsis
   double alt = 0;
@@ -162,6 +170,7 @@ void loop() {
     Serial.println(alt);
   }
   Serial.println("Gravity turn");
+Serial.printf("heap size %i: %u\n", hcount++, ESP.getFreeHeap());
   autopilot.set_target_pitch_and_heading(60.0f, 90.0f);
 
   alt = 0;
@@ -172,10 +181,14 @@ void loop() {
     Serial.println(alt);
   }
   //
+Serial.printf("heap size %i: %u\n", hcount++, ESP.getFreeHeap());
   control.throttle(0.0f);
+Serial.printf("heap size %i: %u\n", hcount++, ESP.getFreeHeap());
   delay(1000);
   control.activate_next_stage();
+Serial.printf("heap size %i: %u\n", hcount++, ESP.getFreeHeap());
   autopilot.disengage();
+Serial.printf("heap size %i: %u\n", hcount++, ESP.getFreeHeap());
 
   // Part Four: Returning Safely to Kerbin
   alt = 100000;
