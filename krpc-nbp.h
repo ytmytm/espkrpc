@@ -61,6 +61,9 @@ class pbBytes : public pbElement {
 class Argument : public pbElement {
   public:
     Argument(const uint32_t position = 0, pbElement *value = NULL) : m_position(position), m_value(value) { };
+    ~Argument() {
+      delete m_value;
+    };
     bool encode(pb_ostream_t *stream, const pb_field_t *field, void * const * arg = NULL) {
       krpc_schema_Argument a = krpc_schema_Argument_init_zero;
       a.position = m_position;

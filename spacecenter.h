@@ -11,6 +11,9 @@ class Flight {
       flightArgument = new KRPC::Argument(0, new KRPC::pbBytes(flightid));
       args[0] = flightArgument;
     };
+    ~Flight() {
+      delete flightArgument;
+    }
     double mean_altitude() {
       KRPC::Request rq(SpaceCenterService, "Flight_get_MeanAltitude", args);
       double val;
@@ -35,6 +38,9 @@ class Control {
       args[0] = controlArgument;
       args2[0] = controlArgument;
     };
+    ~Control() {
+      delete controlArgument;
+    }
     void activate_next_stage() {
       KRPC::Request rq(SpaceCenterService, "Control_ActivateNextStage", args);
       rq.getResponse();
@@ -63,6 +69,9 @@ class Orbit {
       orbitArgument = new KRPC::Argument(0, new KRPC::pbBytes(orbitid));
       args[0] = orbitArgument;
     };
+    ~Orbit() {
+      delete orbitArgument;
+    }
     double apoapsis_altitude() {
       KRPC::Request rq(SpaceCenterService, "Orbit_get_ApoapsisAltitude", args);
       double val;
@@ -80,6 +89,9 @@ class Resources {
       resArgument = new KRPC::Argument(0, new KRPC::pbBytes(resid));
       args[0] = resArgument;
     };
+    ~Resources() {
+      delete resArgument;
+    }
     float amount(char *resource_name) {
       KRPC::Argument valueArgument = KRPC::Argument(1, new KRPC::pbBytes(resource_name));
       args[1] = &valueArgument;
@@ -101,6 +113,9 @@ class AutoPilot {
       args2[0] = autopilotArgument;
       args3[0] = autopilotArgument;
     };
+    ~AutoPilot() {
+      delete autopilotArgument;
+    }
     void engage() {
       KRPC::Request rq(SpaceCenterService, "AutoPilot_Engage", args);
       rq.getResponse();
@@ -142,33 +157,65 @@ class Vessel {
       vesselArgument = new KRPC::Argument(0, new KRPC::pbBytes(vesselid));
       args[0] = vesselArgument;
     };
+    ~Vessel() {
+      delete vesselArgument;
+      delete ap;
+      delete res;
+      delete orb;
+      delete ctr;
+      delete flt;
+    }
     Flight flight() {
-      KRPC::Request rq(SpaceCenterService, "Vessel_Flight", args);
-      rq.getResponse(flightid);
-      return Flight(flightid);
+      if (flt==NULL) {
+        KRPC::Request rq(SpaceCenterService, "Vessel_Flight", args);
+        uint32_t flightid;
+        rq.getResponse(flightid);
+        flt = new Flight(flightid);
+      }
+      return *flt;
     };
     Control control() {
-      KRPC::Request rq(SpaceCenterService, "Vessel_get_Control", args);
-      rq.getResponse(controlid);
-      return Control(controlid);
+      if (ctr==NULL) {
+        KRPC::Request rq(SpaceCenterService, "Vessel_get_Control", args);
+        uint32_t controlid;
+        rq.getResponse(controlid);
+        ctr = new Control(controlid);
+      }
+      return *ctr;
     };
     Orbit orbit() {
-      KRPC::Request rq(SpaceCenterService, "Vessel_get_Orbit", args);
-      rq.getResponse(orbitid);
-      return Orbit(orbitid);
+      if (orb==NULL) {
+        KRPC::Request rq(SpaceCenterService, "Vessel_get_Orbit", args);
+        uint32_t orbitid;
+        rq.getResponse(orbitid);
+        orb = new Orbit(orbitid);
+      }
+      return *orb;
     };
     Resources resources() {
-      KRPC::Request rq(SpaceCenterService, "Vessel_get_Resources", args);
-      rq.getResponse(resourceid);
-      return Resources(resourceid);
+      if (res==NULL) {
+        KRPC::Request rq(SpaceCenterService, "Vessel_get_Resources", args);
+        uint32_t resourceid;
+        rq.getResponse(resourceid);
+        res = new Resources(resourceid);
+      }
+      return *res;
     };
     AutoPilot auto_pilot() {
-      KRPC::Request rq(SpaceCenterService, "Vessel_get_AutoPilot", args);
-      rq.getResponse(autopilotid);
-      return AutoPilot(autopilotid);
+      if (ap==NULL) {
+        KRPC::Request rq(SpaceCenterService, "Vessel_get_AutoPilot", args);
+        uint32_t autopilotid;
+        rq.getResponse(autopilotid);
+        ap = new AutoPilot(autopilotid);
+      }
+      return *ap;
     };
   private:
-    uint32_t flightid, controlid, orbitid, resourceid, autopilotid;
+    AutoPilot *ap = NULL;
+    Resources *res = NULL;
+    Orbit *orb = NULL;
+    Control *ctr = NULL;
+    Flight *flt = NULL;
     KRPC::Argument *vesselArgument;
     KRPC::Argument *args[2] = { NULL, NULL };
 };
