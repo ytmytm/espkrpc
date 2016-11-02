@@ -1,4 +1,6 @@
 
+#include <vector>
+
 namespace KRPC {
 
 namespace services {
@@ -14,14 +16,14 @@ class Flight {
       delete flightArgument;
     }
     double mean_altitude() {
-      KRPC::Argument *args[] = { flightArgument, NULL };
+      std::vector<KRPC::Argument*> args = { flightArgument };
       KRPC::Request rq(SpaceCenterService, "Flight_get_MeanAltitude", args);
       double val;
       rq.getResponse(val);
       return val;
     };
     double surface_altitude() {
-      KRPC::Argument *args[] = { flightArgument, NULL };
+      std::vector<KRPC::Argument*> args = { flightArgument };
       KRPC::Request rq(SpaceCenterService, "Flight_get_SurfaceAltitude", args);
       double val;
       rq.getResponse(val);
@@ -40,12 +42,12 @@ class Control {
       delete controlArgument;
     }
     void activate_next_stage() {
-      KRPC::Argument *args[] = { controlArgument, NULL };
+      std::vector<KRPC::Argument*> args = { controlArgument };
       KRPC::Request rq(SpaceCenterService, "Control_ActivateNextStage", args);
       rq.getResponse();
     };
     float throttle() {
-      KRPC::Argument *args[] = { controlArgument, NULL };
+      std::vector<KRPC::Argument*> args = { controlArgument };
       KRPC::Request rq(SpaceCenterService, "Control_get_Throttle", args);
       float val;
       rq.getResponse(val);
@@ -53,7 +55,7 @@ class Control {
     };
     void throttle(float value) {
       KRPC::Argument valueArgument = KRPC::Argument(1, new KRPC::pbBytes(value));
-      KRPC::Argument *args[] = { controlArgument, &valueArgument, NULL };
+      std::vector<KRPC::Argument*> args = { controlArgument, &valueArgument };
       KRPC::Request rq(SpaceCenterService, "Control_set_Throttle", args);
       rq.getResponse();
     };
@@ -70,7 +72,7 @@ class Orbit {
       delete orbitArgument;
     }
     double apoapsis_altitude() {
-      KRPC::Argument *args[] = { orbitArgument, NULL };
+      std::vector<KRPC::Argument*> args = { orbitArgument };
       KRPC::Request rq(SpaceCenterService, "Orbit_get_ApoapsisAltitude", args);
       double val;
       rq.getResponse(val);
@@ -90,7 +92,7 @@ class Resources {
     }
     float amount(char *resource_name) {
       KRPC::Argument valueArgument = KRPC::Argument(1, new KRPC::pbBytes(resource_name));
-      KRPC::Argument *args[] = { resArgument, &valueArgument, NULL };
+      std::vector<KRPC::Argument*> args = { resArgument, &valueArgument };
       KRPC::Request rq(SpaceCenterService, "Resources_Amount", args);
       float val;
       rq.getResponse(val);
@@ -109,31 +111,31 @@ class AutoPilot {
       delete autopilotArgument;
     }
     void engage() {
-      KRPC::Argument *args[] = { autopilotArgument, NULL };
+      std::vector<KRPC::Argument*> args = { autopilotArgument };
       KRPC::Request rq(SpaceCenterService, "AutoPilot_Engage", args);
       rq.getResponse();
     };
     void disengage() {
-      KRPC::Argument *args[] = { autopilotArgument, NULL };
+      std::vector<KRPC::Argument*> args = { autopilotArgument };
       KRPC::Request rq(SpaceCenterService, "AutoPilot_Disengage", args);
       rq.getResponse();
     };
     void set_target_pitch(float value) {
       KRPC::Argument valueArgument = KRPC::Argument(1, new KRPC::pbBytes(value));
-      KRPC::Argument *args[] = { autopilotArgument, &valueArgument, NULL };
+      std::vector<KRPC::Argument*> args = { autopilotArgument, &valueArgument };
       KRPC::Request rq(SpaceCenterService, "AutoPilot_set_TargetPitch", args);
       rq.getResponse();
     };
     void set_target_heading(float value) {
       KRPC::Argument valueArgument = KRPC::Argument(1, new KRPC::pbBytes(value));
-      KRPC::Argument *args[] = { autopilotArgument, &valueArgument, NULL };
+      std::vector<KRPC::Argument*> args = { autopilotArgument, &valueArgument };
       KRPC::Request rq(SpaceCenterService, "AutoPilot_set_TargetHeading", args);
       rq.getResponse();
     };
     void set_target_pitch_and_heading(float pitch, float heading) {
       KRPC::Argument valueArgument1 = KRPC::Argument(1, new KRPC::pbBytes(pitch));
       KRPC::Argument valueArgument2 = KRPC::Argument(2, new KRPC::pbBytes(heading));
-      KRPC::Argument *args[] = { autopilotArgument, &valueArgument1, &valueArgument2, NULL };
+      std::vector<KRPC::Argument*> args = { autopilotArgument, &valueArgument1, &valueArgument2 };
       KRPC::Request rq(SpaceCenterService, "AutoPilot_TargetPitchAndHeading", args);
       rq.getResponse();
     };
@@ -145,7 +147,6 @@ class Vessel {
   public:
     Vessel(uint32_t vesselid) {
       vesselArgument = new KRPC::Argument(0, new KRPC::pbBytes(vesselid));
-      args[0] = vesselArgument;
     };
     ~Vessel() {
       delete vesselArgument;
@@ -157,6 +158,7 @@ class Vessel {
     }
     Flight flight() {
       if (flt==NULL) {
+        std::vector<KRPC::Argument*> args = { vesselArgument };
         KRPC::Request rq(SpaceCenterService, "Vessel_Flight", args);
         uint32_t flightid;
         rq.getResponse(flightid);
@@ -166,6 +168,7 @@ class Vessel {
     };
     Control control() {
       if (ctr==NULL) {
+        std::vector<KRPC::Argument*> args = { vesselArgument };
         KRPC::Request rq(SpaceCenterService, "Vessel_get_Control", args);
         uint32_t controlid;
         rq.getResponse(controlid);
@@ -175,6 +178,7 @@ class Vessel {
     };
     Orbit orbit() {
       if (orb==NULL) {
+        std::vector<KRPC::Argument*> args = { vesselArgument };
         KRPC::Request rq(SpaceCenterService, "Vessel_get_Orbit", args);
         uint32_t orbitid;
         rq.getResponse(orbitid);
@@ -184,6 +188,7 @@ class Vessel {
     };
     Resources resources() {
       if (res==NULL) {
+        std::vector<KRPC::Argument*> args = { vesselArgument };
         KRPC::Request rq(SpaceCenterService, "Vessel_get_Resources", args);
         uint32_t resourceid;
         rq.getResponse(resourceid);
@@ -193,6 +198,7 @@ class Vessel {
     };
     AutoPilot auto_pilot() {
       if (ap==NULL) {
+        std::vector<KRPC::Argument*> args = { vesselArgument };
         KRPC::Request rq(SpaceCenterService, "Vessel_get_AutoPilot", args);
         uint32_t autopilotid;
         rq.getResponse(autopilotid);
@@ -207,7 +213,6 @@ class Vessel {
     Control *ctr = NULL;
     Flight *flt = NULL;
     KRPC::Argument *vesselArgument;
-    KRPC::Argument *args[2] = { NULL, NULL };
 };
 
 class SpaceCenter {

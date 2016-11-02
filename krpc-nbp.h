@@ -1,3 +1,6 @@
+
+#include <vector>
+
 #include "pb_encode.h"
 #include "pb_decode.h"
 #include "krpc.pb.h"
@@ -79,8 +82,9 @@ class Argument : public pbElement {
 
 static bool write_repeated_args(pb_ostream_t *stream, const pb_field_t *field, void * const *arg) {
   bool b = true;
-  for (Argument **args = (Argument **)*arg; *args != NULL; args++) {
-    b = b && (*args)->encode(stream, field);
+  std::vector<Argument *> *args = (std::vector<Argument *>*)*arg;
+  for (auto &a : *args) {
+    b = b && a->encode(stream, field);
   }
   return b;
 }
@@ -182,17 +186,17 @@ class Response {
 
 class Request : public pbElement {
   public:
-    Request(const char *service, const char *procedure, Argument **arguments = NULL) : m_service(service), m_procedure(procedure), m_arguments(arguments) { };
-    bool encode(pb_ostream_t *stream, const pb_field_t *field = NULL, void * const * arg = NULL) {
+    Request(const char *service, const char *procedure, const std::vector<Argument *> &arguments = std::vector<Argument *>()) : m_service(service), m_procedure(procedure), m_arguments(arguments) { };
+     bool encode(pb_ostream_t *stream, const pb_field_t *field = NULL, void * const * arg = NULL) {
       krpc_schema_Request message = krpc_schema_Request_init_zero;
       message.service.funcs.encode = &write_string;
       message.service.arg = (void*)m_service;
       message.procedure.funcs.encode = &write_string;
       message.procedure.arg = (void*)m_procedure;
-      if (m_arguments != NULL) {
+      if (!m_arguments.empty()) {
         message.arguments.funcs.encode = &write_repeated_args;
       };
-      message.arguments.arg = m_arguments;
+      message.arguments.arg = &m_arguments;
       return pb_encode_delimited(stream, krpc_schema_Request_fields, &message);
     };
     bool getResponse() {
@@ -216,7 +220,7 @@ class Request : public pbElement {
     KRPC::Response m_response;
     const char *m_service;
     const char *m_procedure;
-    Argument **m_arguments;
+    std::vector<Argument *> m_arguments;
     bool send()  {
       /* Create a stream that will write to our buffer. */
       pb_ostream_t stream = pb_ostream_from_buffer(buffer, sizeof(buffer));
